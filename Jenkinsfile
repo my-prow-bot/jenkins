@@ -1,25 +1,36 @@
 pipeline {
     agent any
+
+    parameters {
+        string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Git branch to build')
+        choice(name: 'ENVIRONMENT', choices: ['dev', 'staging', 'prod'], description: 'Deployment environment')
+        booleanParam(name: 'RUN_TESTS', defaultValue: true, description: 'Run tests?')
+    }
+
     stages {
         stage('Checkout') {
-            steps { checkout scm }
-        }
-        stage('Build') {
-            steps { sh 'chmod +x gradlew'
-                sh './gradlew build' }
-        }
-        stage('Test') {
-            steps { sh './gradlew test' }
-        }
-        stage('Package') {
             steps {
-                sh './gradlew jar'
-                archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true
+                checkout([$class: 'GitSCM', branches: [[name: params.BRANCH_NAME]], userRemoteConfigs: [[url: 'https://github.com/your-org/your-repo.git']]])
             }
         }
-    }
-    post {
-        success { echo "Pipeline completed successfully!" }
-        failure { echo "Pipeline failed." }
+
+        stage('Build') {
+            steps {
+                sh './gradlew build'
+            }
+        }
+
+        stage('Test') {
+            when { expression { params.RUN_TESTS } }
+            steps {
+                sh './gradlew test'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "Deploying to ${params.ENVIRONMENT} environment..."
+            }
+        }
     }
 }
